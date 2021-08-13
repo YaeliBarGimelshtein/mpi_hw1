@@ -68,10 +68,9 @@ void masterProcess(int num_procs, int chunk_size)
     prime_or_not = (int*)malloc(sizeof(int)*input_size);
 
     //SET THE NUMBERS
-    //jobs_total = input_size / num_procs;
     jobs_total = input_size / chunck;
     num_workers = num_procs-1;
-
+    int pointerToRecive = 0;
 
     //START WORKERS
     for(worker_id =1; worker_id<num_procs; worker_id++)
@@ -91,15 +90,17 @@ void masterProcess(int num_procs, int chunk_size)
             tag = WORK;
 
         //GET THE DATA AND SEND MORE
-        MPI_Recv(prime_or_not,chunck,MPI_INT,MPI_ANY_SOURCE,WORK,MPI_COMM_WORLD,&status);
+        MPI_Recv(prime_or_not+(pointerToRecive*chunck),chunck,MPI_INT,MPI_ANY_SOURCE,WORK,MPI_COMM_WORLD,&status);
         MPI_Send(arr+(jobs_sent*chunck), chunck ,MPI_INT, status.MPI_SOURCE, tag, MPI_COMM_WORLD);
         jobs_sent ++;
+        pointerToRecive ++;
     }
 
     //RECIVE FINAL WORK
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
-        MPI_Recv(prime_or_not,chunck,MPI_INT,MPI_ANY_SOURCE,STOP,MPI_COMM_WORLD,&status);
+        MPI_Recv(prime_or_not+(pointerToRecive*chunck),chunck,MPI_INT,MPI_ANY_SOURCE,STOP,MPI_COMM_WORLD,&status);
+        pointerToRecive ++;
     }
     
     printf("here are all prime numbers in this list\n");

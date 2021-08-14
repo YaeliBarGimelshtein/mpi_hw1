@@ -105,7 +105,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
     int stop = input_size + 1;
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
-        MPI_Send(&tag_id_of_arr_index, 1 ,MPI_INT, worker_id, stop, MPI_COMM_WORLD);
+        MPI_Send(&stop, 1 ,MPI_INT, worker_id, stop, MPI_COMM_WORLD);
     }
         
     

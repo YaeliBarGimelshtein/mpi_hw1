@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define ROOT 0
 
-enum ranks{ROOT};
-enum task{WORK, STOP};
 
 
 
@@ -22,40 +21,38 @@ int checkPrime(int num)
 }
 
 
-void workerProcess(int size)
+void workerProcess(int size, int input_size)
 {
     int* work_arr = (int*)malloc(sizeof(int)*size);
-    int* res_arr = (int*)malloc(sizeof(int)*size);
     int tag;
     MPI_Status status;
-    do
+
+    while(tag < (input_size+1))
     {
         MPI_Recv(work_arr,size,MPI_INT,ROOT,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
         tag = status.MPI_TAG;
 
         for (int i = 0; i < size; i++)
         {
-            res_arr[i] = checkPrime(work_arr[i]);
+            work_arr[i]=checkPrime(work_arr[i]);
         }
 
-        MPI_Send(res_arr,size,MPI_INT,ROOT,tag,MPI_COMM_WORLD);
+        MPI_Send(work_arr,size,MPI_INT,ROOT,tag,MPI_COMM_WORLD);
     }
-    while(tag != STOP);
+
     //FREE ALL MEMORY AND MPI AND FINISH THE PROG
     free(work_arr);
-    free(res_arr);
 }
 
 
-void masterProcess(int num_procs, int chunk_size)
+void masterProcess(int num_procs, int chunk_size, int input)
 {
     MPI_Status status;
-    int* arr, input_size, tag, jobs_sent=0, num_workers, worker_id, jobs_total, jobs_left, *prime_or_not;
+    int* arr, input_size, jobs_sent=0, num_workers, worker_id, jobs_total, *prime_or_not;
 
     
     //GET THE INPUT
-    printf("Enter the size of input\n");
-    scanf("%d",&input_size);
+    input_size = input;
     arr = (int*)malloc(sizeof(int)*input_size);
     for (int i = 0; i < input_size; i++)
     {
@@ -70,38 +67,47 @@ void masterProcess(int num_procs, int chunk_size)
     //SET THE NUMBERS
     jobs_total = input_size / chunck;
     num_workers = num_procs-1;
-    int pointerToRecive = 0;
+    
+
+
+    int tag_id_of_arr_index = 0;
+    
+    int sent = 0;
 
     //START WORKERS
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
-        MPI_Send(arr+(jobs_sent*chunck), chunck ,MPI_INT, worker_id, WORK, MPI_COMM_WORLD);
+        MPI_Send(arr+(jobs_sent*chunck), chunck ,MPI_INT, worker_id, tag_id_of_arr_index, MPI_COMM_WORLD);
         jobs_sent ++;
+        tag_id_of_arr_index += chunck;
+        sent ++;
     }
     
+    
     //RECIVE AND SEND MORE WORK
-    for(;jobs_sent < jobs_total;)
+    while(sent != 0)
     {
-        //CHECK IF LAST ROUND
-        jobs_left = jobs_total-jobs_sent;
-        if(jobs_left <= num_workers)
-            tag = STOP;
-        else
-            tag = WORK;
-
         //GET THE DATA AND SEND MORE
-        MPI_Recv(prime_or_not+(pointerToRecive*chunck),chunck,MPI_INT,MPI_ANY_SOURCE,WORK,MPI_COMM_WORLD,&status);
-        MPI_Send(arr+(jobs_sent*chunck), chunck ,MPI_INT, status.MPI_SOURCE, tag, MPI_COMM_WORLD);
-        jobs_sent ++;
-        pointerToRecive ++;
+        MPI_Recv(prime_or_not+status.MPI_TAG,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+        sent --;
+        
+        if(jobs_sent < jobs_total)
+        {
+            MPI_Send(arr+(jobs_sent*chunck), chunck ,MPI_INT, status.MPI_SOURCE, tag_id_of_arr_index, MPI_COMM_WORLD);
+            jobs_sent ++;
+            tag_id_of_arr_index += chunck;
+            sent ++;
+        } 
     }
-
-    //RECIVE FINAL WORK
+    
+    
+    //SEND THE SIGNAL FOR PROCESSES TO DIE
+    int stop = input_size + 1;
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
-        MPI_Recv(prime_or_not+(pointerToRecive*chunck),chunck,MPI_INT,MPI_ANY_SOURCE,STOP,MPI_COMM_WORLD,&status);
-        pointerToRecive ++;
+        MPI_Send(&tag_id_of_arr_index, 1 ,MPI_INT, worker_id, stop, MPI_COMM_WORLD);
     }
+        
     
     printf("here are all prime numbers in this list\n");
     for (int i = 0; i < input_size; i++)
@@ -128,19 +134,21 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs); 
 
     //GET THE CHUNCK SIZE FOR EACH PROCESS
-    int chunk;
+    int chunk, input_size;
     if(my_rank == ROOT)
     {
         printf("Enter the size of chunk\n");
         scanf("%d",&chunk);
+        printf("Enter the size of input\n");
+        scanf("%d",&input_size);
     }
     MPI_Bcast(&chunk, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     
    
     if(my_rank == ROOT)
-        masterProcess(num_procs, chunk);
+        masterProcess(num_procs, chunk, input_size);
     else
-        workerProcess(chunk);
+        workerProcess(chunk, input_size);
 
     MPI_Finalize();
     return 0;

@@ -49,7 +49,10 @@ int main(int argc, char *argv[])
     
     //CALCULATING FOR EACH PROCESS HOW MANY NUMBERS TO CHECK
     int num_work_for_each = input_size / num_procs;
-
+    int extra_work = 0;
+    if(input_size % num_procs != 0)
+        extra_work = input_size % num_procs;
+    
     //BUFFER THAT HOLD A SUBSET OF THE INPUT FOR EACH PROCESS 
     int* work_arr = (int*)malloc(sizeof(int)*num_work_for_each);
     
@@ -61,7 +64,7 @@ int main(int argc, char *argv[])
     {
         work_arr[i]=checkPrime(work_arr[i]);
     }
-    
+
     //GATHER ALL PARTIAL PRIMES DOWN TO THE ROOT PROCESS ----> ARRAY OF 1'S AND 0'S: 1 MEANS THE NUMBER IS PRIME
     int* prime_or_not;
    
@@ -70,9 +73,19 @@ int main(int argc, char *argv[])
         prime_or_not = (int*)malloc(sizeof(int)*input_size);
     }
 
-    MPI_Gather(work_arr, num_work_for_each, MPI_INT, prime_or_not, num_work_for_each, MPI_INT, ROOT, MPI_COMM_WORLD); //STUCK HERE, WHY???
-    
+    MPI_Gather(work_arr, num_work_for_each, MPI_INT, prime_or_not, num_work_for_each, MPI_INT, ROOT, MPI_COMM_WORLD); 
 
+    //TAKE CARE OF THE RESIDUAL 
+     if(my_rank == ROOT && extra_work != 0 )
+    {
+        for (int i = num_procs * num_work_for_each; i < input_size; i++)
+        {
+            prime_or_not[i] = checkPrime(arr[i]);
+        }
+    }
+    
+    
+    //PRINT THE RESULTS
     if(my_rank == ROOT)
     {
         printf("here are all prime numbers in this list\n");

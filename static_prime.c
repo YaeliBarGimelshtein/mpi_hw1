@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 
 #define ROOT 0
@@ -35,17 +36,24 @@ int main(int argc, char *argv[])
     
         arr = (int*)malloc(sizeof(int)*input_size*2); //ARRAY OF COUPLES
         char str[MAX];
-
+        char check;
 
         for (int i = 0; i < input_size; i++)
         {
             printf("Enter the %d pair of numbers separated by a tab\n", i+1);
             fgets(str, MAX, stdin);
-            sscanf(str, "%d\t%d", &arr[2*i], &arr[2*i+1]);
+            if(sscanf(str, "%d\t%d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 || check != '\0')
+            {
+                printf("illegal input at line %d\n", i+1);
+                exit(0);
+            }
         }
     }
     
     MPI_Bcast(&input_size, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
+
+    //SET THE TIME
+    double t = MPI_Wtime();
     
     //CALCULATING FOR EACH PROCESS HOW MANY NUMBERS TO CHECK
     int num_work_for_each = input_size / num_procs;
@@ -88,6 +96,7 @@ int main(int argc, char *argv[])
     //PRINT THE RESULTS
     if(my_rank == ROOT)
     {
+        printf("Time: %lf\n",MPI_Wtime()-t);
         printf("here are all the numbers and their gcd\n");
         for (int i = 0; i < input_size; i++)
         {

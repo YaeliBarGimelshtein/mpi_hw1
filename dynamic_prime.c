@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define ROOT 0
 #define MAX 50
@@ -41,7 +42,7 @@ void workerProcess(int size, int input_size)
             MPI_Send(res_arr,size,MPI_INT,ROOT,tag,MPI_COMM_WORLD); //SEND THE DATA  
         }
     } 
-    while (tag != input_size*2 + 1);
+    while (tag != input_size*2 + 1 );
     
     //FREE ALL MEMORY AND MPI AND FINISH THE PROG
     free(work_arr);
@@ -53,22 +54,31 @@ void masterProcess(int num_procs, int chunk_size, int input)
 {
     MPI_Status status;
     int* arr, input_size, jobs_sent=0, num_workers, worker_id, jobs_total, *final_gcd;
+    int result;
 
     //GET THE INPUT
     input_size = input;
     int chunck = chunk_size;
     arr = (int*)malloc(sizeof(int)*input_size*2);
     char str[MAX];
+    char check;
 
     for (int i = 0; i < input_size; i++)
     {
         printf("Enter the %d pair of numbers separated by a tab\n", i+1);
         fgets(str, MAX, stdin);
-        sscanf(str, "%d\t%d", &arr[2*i], &arr[2*i+1]);
+        if(sscanf(str, "%d\t%d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 || check != '\0')
+        {
+            printf("illegal input at line %d\n", i+1);
+            exit(0);
+        }
     }
     
     //GATHER ALL PARTIAL DEVISIONS 
     final_gcd = (int*)malloc(sizeof(int)*input_size);
+
+    //SET THE TIME
+    double t = MPI_Wtime();
 
     //SET THE NUMBERS
     jobs_total = input_size / chunck;
@@ -126,7 +136,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
         }
     }
     
-    
+    printf("Time: %lf\n",MPI_Wtime()-t);
     printf("here are all the numbers and their gcd\n");
     for (int i = 0; i < input_size; i++)
     {

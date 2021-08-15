@@ -1,23 +1,17 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 #define ROOT 0
+#define MAX 50
 
-
-
-int checkPrime(int num)
+int gcd(int a, int b)
 {
-    if (num <= 1)
-        return 0; 
-   
-   for (int j = 2; j <= num/2; j++)
-   {
-      if (num % j == 0)
-        return 0;
-   }
-   return 1;
+    if (a == 0)
+        return b;
+    return gcd(b%a, a);
 }
 
 
@@ -37,14 +31,20 @@ int main(int argc, char *argv[])
     {
         printf("Enter the size of input\n");
         scanf("%d",&input_size);
+        getchar();
     
-        arr = (int*)malloc(sizeof(int)*input_size);
+        arr = (int*)malloc(sizeof(int)*input_size*2); //ARRAY OF COUPLES
+        char str[MAX];
+
+
         for (int i = 0; i < input_size; i++)
         {
-            printf("Enter the %d number\n", i+1);
-            scanf("%d",&arr[i]);
+            printf("Enter the %d pair of numbers separated by a tab\n", i+1);
+            fgets(str, MAX, stdin);
+            sscanf(str, "%d\t%d", &arr[2*i], &arr[2*i+1]);
         }
     }
+    
     MPI_Bcast(&input_size, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     
     //CALCULATING FOR EACH PROCESS HOW MANY NUMBERS TO CHECK
@@ -54,47 +54,45 @@ int main(int argc, char *argv[])
         extra_work = input_size % num_procs;
     
     //BUFFER THAT HOLD A SUBSET OF THE INPUT FOR EACH PROCESS 
-    int* work_arr = (int*)malloc(sizeof(int)*num_work_for_each);
+    int* work_arr = (int*)malloc(sizeof(int)*num_work_for_each*2);
+    int* res_arr = (int*)malloc(sizeof(int)*num_work_for_each);
     
     //THE MASTER DIVIDES THE WORK BETWEEN THE PROCESSES
-    MPI_Scatter(arr,num_work_for_each,MPI_INT,work_arr,num_work_for_each,MPI_INT,ROOT,MPI_COMM_WORLD); //each process got totalNums/numProcresses numbers to check
+    MPI_Scatter(arr,num_work_for_each*2,MPI_INT,work_arr,num_work_for_each*2,MPI_INT,ROOT,MPI_COMM_WORLD); 
     
     //COMPUTE THE PRIMES OF EACH SUBSET
     for (int i = 0; i < num_work_for_each; i++)
     {
-        work_arr[i]=checkPrime(work_arr[i]);
+        res_arr[i]=gcd(work_arr[2*i], work_arr[2*i + 1]);
     }
 
-    //GATHER ALL PARTIAL PRIMES DOWN TO THE ROOT PROCESS ----> ARRAY OF 1'S AND 0'S: 1 MEANS THE NUMBER IS PRIME
-    int* prime_or_not;
+    //GATHER ALL PARTIAL DEVISIONS DOWN TO THE ROOT PROCESS
+    int* final_gcd;
    
     if(my_rank == ROOT)
     {
-        prime_or_not = (int*)malloc(sizeof(int)*input_size);
+        final_gcd = (int*)malloc(sizeof(int)*input_size);
     }
 
-    MPI_Gather(work_arr, num_work_for_each, MPI_INT, prime_or_not, num_work_for_each, MPI_INT, ROOT, MPI_COMM_WORLD); 
+    MPI_Gather(res_arr, num_work_for_each, MPI_INT, final_gcd, num_work_for_each, MPI_INT, ROOT, MPI_COMM_WORLD); 
 
     //TAKE CARE OF THE RESIDUAL 
      if(my_rank == ROOT && extra_work != 0 )
     {
         for (int i = num_procs * num_work_for_each; i < input_size; i++)
         {
-            prime_or_not[i] = checkPrime(arr[i]);
+            final_gcd[i]=gcd(arr[2*i], arr[2*i + 1]);
         }
     }
-    
     
     //PRINT THE RESULTS
     if(my_rank == ROOT)
     {
-        printf("here are all prime numbers in this list\n");
+        printf("here are all the numbers and their gcd\n");
         for (int i = 0; i < input_size; i++)
         {
-            if(prime_or_not[i] == 1)
-            {
-                printf("%d\n", arr[i]);
-            }
+            printf("%d\t%d\t", arr[2*i], arr[2*i+1]);
+            printf("gcd: %d\n", final_gcd[i]);
         }
     }
 
@@ -102,8 +100,9 @@ int main(int argc, char *argv[])
     if(my_rank == ROOT)
     {
         free(arr);
-        free(prime_or_not);
-    }  
+        free(final_gcd);
+    } 
+    
     free(work_arr);
     MPI_Finalize();
     return 0;

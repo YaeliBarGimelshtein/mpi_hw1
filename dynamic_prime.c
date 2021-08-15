@@ -26,7 +26,7 @@ void workerProcess(int size, int input_size)
     int* work_arr = (int*)malloc(sizeof(int)*size);
     int tag = 0;
     MPI_Status status;
-
+    
     do
     {
         MPI_Recv(work_arr,size,MPI_INT,ROOT,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //RECEIVE WORK
@@ -56,7 +56,6 @@ void masterProcess(int num_procs, int chunk_size, int input)
     MPI_Status status;
     int* arr, input_size, jobs_sent=0, num_workers, worker_id, jobs_total, *prime_or_not;
 
-    
     //GET THE INPUT
     input_size = input;
     int chunck = chunk_size;
@@ -76,6 +75,11 @@ void masterProcess(int num_procs, int chunk_size, int input)
     int tag_id_of_arr_index = 0;
     int sent = 0;
     int location = 0;
+
+    int extra_work = 0;
+    if(input_size % chunck != 0)
+        extra_work = input_size % chunck;
+    
 
     //START WORKERS
     for(worker_id =1; worker_id<num_procs; worker_id++)
@@ -109,6 +113,15 @@ void masterProcess(int num_procs, int chunk_size, int input)
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
         MPI_Send(&stop, 1 ,MPI_INT, worker_id, stop, MPI_COMM_WORLD);
+    }
+
+    //TAKE CARE OF THE RESIDUAL 
+     if(extra_work != 0 )
+    {
+        for (int i = 0; i < extra_work; i++)
+        {
+            prime_or_not[tag_id_of_arr_index] = checkPrime(arr[tag_id_of_arr_index]);
+        }
     }
     
     
@@ -147,7 +160,7 @@ int main(int argc, char *argv[])
         scanf("%d",&input_size);
     }
     MPI_Bcast(&chunk, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
-    
+    MPI_Bcast(&input_size, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
    
     if(my_rank == ROOT)
     {

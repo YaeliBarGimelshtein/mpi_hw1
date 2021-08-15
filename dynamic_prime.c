@@ -24,22 +24,28 @@ int checkPrime(int num)
 void workerProcess(int size, int input_size)
 {
     int* work_arr = (int*)malloc(sizeof(int)*size);
-    int tag;
+    int tag = 0;
     MPI_Status status;
 
-    while(tag < (input_size+1))
+    do
     {
-        MPI_Recv(work_arr,size,MPI_INT,ROOT,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+        MPI_Recv(work_arr,size,MPI_INT,ROOT,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //RECEIVE WORK
         tag = status.MPI_TAG;
 
-        for (int i = 0; i < size; i++)
+        if(tag != input_size + 1)
         {
-            work_arr[i]=checkPrime(work_arr[i]);
+            for (int i = 0; i < size; i++)
+            {
+                work_arr[i]=checkPrime(work_arr[i]);
+            }
+
+            MPI_Send(&tag, 1, MPI_INT, ROOT, tag, MPI_COMM_WORLD); //SEND THE LOCATION
+            MPI_Recv(&tag,1,MPI_INT,ROOT,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //GET APPROVED 
+            MPI_Send(work_arr,size,MPI_INT,ROOT,tag,MPI_COMM_WORLD); //SEND THE DATA  
         }
-
-        MPI_Send(work_arr,size,MPI_INT,ROOT,tag,MPI_COMM_WORLD);
-    }
-
+    } 
+    while (tag != input_size + 1);
+    
     //FREE ALL MEMORY AND MPI AND FINISH THE PROG
     free(work_arr);
 }
@@ -53,6 +59,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
     
     //GET THE INPUT
     input_size = input;
+    int chunck = chunk_size;
     arr = (int*)malloc(sizeof(int)*input_size);
     for (int i = 0; i < input_size; i++)
     {
@@ -60,19 +67,15 @@ void masterProcess(int num_procs, int chunk_size, int input)
         scanf("%d",&arr[i]);
     }
     
-    int chunck = chunk_size;
-    
+    //GATHER ALL PARTIAL PRIMES ----> ARRAY OF 1'S AND 0'S: 1 MEANS THE NUMBER IS PRIME
     prime_or_not = (int*)malloc(sizeof(int)*input_size);
 
     //SET THE NUMBERS
     jobs_total = input_size / chunck;
     num_workers = num_procs-1;
-    
-
-
     int tag_id_of_arr_index = 0;
-    
     int sent = 0;
+    int location = 0;
 
     //START WORKERS
     for(worker_id =1; worker_id<num_procs; worker_id++)
@@ -83,12 +86,13 @@ void masterProcess(int num_procs, int chunk_size, int input)
         sent ++;
     }
     
-    
     //RECIVE AND SEND MORE WORK
     while(sent != 0)
     {
         //GET THE DATA AND SEND MORE
-        MPI_Recv(prime_or_not+status.MPI_TAG,chunck,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+        MPI_Recv(&location, 1, MPI_INT, MPI_ANY_SOURCE,MPI_ANY_TAG, MPI_COMM_WORLD, &status); //GET THE LOCATION
+        MPI_Send(&location, 1 ,MPI_INT,status.MPI_SOURCE,location, MPI_COMM_WORLD);
+        MPI_Recv(prime_or_not+location,chunck,MPI_INT,status.MPI_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //GET THE DATA
         sent --;
         
         if(jobs_sent < jobs_total)
@@ -100,14 +104,13 @@ void masterProcess(int num_procs, int chunk_size, int input)
         } 
     }
     
-    
     //SEND THE SIGNAL FOR PROCESSES TO DIE
     int stop = input_size + 1;
     for(worker_id =1; worker_id<num_procs; worker_id++)
     {
         MPI_Send(&stop, 1 ,MPI_INT, worker_id, stop, MPI_COMM_WORLD);
     }
-        
+    
     
     printf("here are all prime numbers in this list\n");
     for (int i = 0; i < input_size; i++)
@@ -117,6 +120,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
             printf("%d\n", arr[i]);
         }
     }
+    
     //FREE ALL MEMORY AND MPI AND FINISH THE PROG
     free(arr);
     free(prime_or_not);
@@ -146,10 +150,14 @@ int main(int argc, char *argv[])
     
    
     if(my_rank == ROOT)
+    {
         masterProcess(num_procs, chunk, input_size);
+    }  
     else
+    {
         workerProcess(chunk, input_size);
-
+    }
+    
     MPI_Finalize();
     return 0;
 }

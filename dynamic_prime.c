@@ -110,7 +110,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
         MPI_Recv(final_gcd+(location/2),chunck,MPI_INT,status.MPI_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status); //GET THE DATA
         sent --;
         
-        if(jobs_sent < jobs_total)
+        if((jobs_sent < jobs_total))
         {
             MPI_Send(arr+(jobs_sent*chunck*2), chunck*2 ,MPI_INT, status.MPI_SOURCE, tag_id_of_arr_index, MPI_COMM_WORLD);
             jobs_sent ++;
@@ -132,7 +132,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
         for (int i = 0; i < extra_work; i++)
         {
             final_gcd[tag_id_of_arr_index/2] = gcd(arr[tag_id_of_arr_index], arr[tag_id_of_arr_index+1]);
-            tag_id_of_arr_index += chunck*2;
+            tag_id_of_arr_index += 2;
         }
     }
     

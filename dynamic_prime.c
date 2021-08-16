@@ -65,9 +65,9 @@ void masterProcess(int num_procs, int chunk_size, int input)
 
     for (int i = 0; i < input_size; i++)
     {
-        printf("Enter the %d pair of numbers separated by a tab\n", i+1);
+        printf("Enter the %d pair of numbers separated by a tab or space\n", i+1);
         fgets(str, MAX, stdin);
-        if(sscanf(str, "%d\t%d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 || check != '\0')
+        if(sscanf(str, "%d\t%d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 ||sscanf(str, "%d %d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 || check != '\0')
         {
             printf("illegal input at line %d\n", i+1);
             exit(0);
@@ -112,7 +112,7 @@ void masterProcess(int num_procs, int chunk_size, int input)
         
         if(jobs_sent < jobs_total)
         {
-            MPI_Send(arr+(jobs_sent*chunck*2), chunck*2 ,MPI_INT, worker_id, tag_id_of_arr_index, MPI_COMM_WORLD);
+            MPI_Send(arr+(jobs_sent*chunck*2), chunck*2 ,MPI_INT, status.MPI_SOURCE, tag_id_of_arr_index, MPI_COMM_WORLD);
             jobs_sent ++;
             tag_id_of_arr_index += chunck*2;
             sent ++;
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs); 
-
+    
     //GET THE CHUNCK SIZE FOR EACH PROCESS
     int chunk, input_size;
     if(my_rank == ROOT)

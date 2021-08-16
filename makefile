@@ -1,6 +1,6 @@
 build:
-	mpicc -c static_prime.c
-	mpicc -o exec static_prime.o  
+	mpicc -c dynamic_prime.c
+	mpicc -o exec dynamic_prime.o  
 
 clean:
 	rm -f *.o exec

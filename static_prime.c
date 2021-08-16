@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
     //GET THE INPUT
     if(my_rank == ROOT)
     {
-        printf("Enter the size of input\n");
+        //printf("Enter the size of input\n");
         scanf("%d",&input_size);
         getchar();
     
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < input_size; i++)
         {
-            printf("Enter the %d pair of numbers separated by a tab or space\n", i+1);
+            //printf("Enter the %d pair of numbers separated by a tab or space\n", i+1);
             fgets(str, MAX, stdin);
             if(sscanf(str, "%d\t%d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 ||sscanf(str, "%d %d%s", &arr[2*i], &arr[2*i+1], &check)!= 2 ||check != '\0')
             {

@@ -74,12 +74,13 @@ void masterProcess(int num_procs, int chunk_size, int input)
         }
     }
     
-    //GATHER ALL PARTIAL DEVISIONS 
-    final_gcd = (int*)malloc(sizeof(int)*input_size);
-
     //SET THE TIME
     double t = MPI_Wtime();
 
+    //GATHER ALL PARTIAL DEVISIONS 
+    final_gcd = (int*)malloc(sizeof(int)*input_size);
+
+    
     //SET THE NUMBERS
     jobs_total = input_size / chunck;
     num_workers = num_procs-1;
